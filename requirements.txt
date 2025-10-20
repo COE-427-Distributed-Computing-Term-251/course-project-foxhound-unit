@@ -1,0 +1,50 @@
+# FILE: requirements.txt
+# Python runtime dependencies (pin conservatively for reproducibility)
+# Python >= 3.11
+
+# Core scientific stack
+numpy~=1.26
+scipy~=1.13
+pandas~=2.2
+matplotlib~=3.8
+
+# Machine learning (uncomment what you need)
+scikit-learn~=1.5
+# torch~=2.3            # PyTorch (CPU); choose CUDA-specific wheels if needed
+# tensorflow~=2.16      # If using TensorFlow instead of PyTorch
+
+# Notebooks & tooling
+jupyterlab~=4.2
+ipykernel~=6.29
+
+# I/O and utils (optional; uncomment as needed)
+# h5py~=3.11
+# pytdms~=1.5
+# pyyaml~=6.0
+# requests~=2.32
+# tqdm~=4.66
+
+
+# FILE: requirements-dev.txt
+# Python development & QA dependencies
+
+# Testing
+pytest~=8.3
+
+# Linting/formatting
+ruff~=0.5
+flake8~=7.1
+black~=24.8
+
+# Type checking (optional)
+mypy~=1.11
+
+# Pre-commit hooks (optional)
+pre-commit~=3.7
+
+function addIfExists(p)
+    if isfolder(p)
+        addpath(genpath(p));
+        fprintf('[KFUPM] Added to path: %s\n', p);
+    end
+end
