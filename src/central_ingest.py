@@ -85,3 +85,26 @@ class CentralIngest:
     def _on_connect(self, client, userdata, flags, rc):
         print("Central MQTT connected (rc=%s)" % rc)
         client.subscribe("panels/+/telemetry", qos=1)
+
+    def _on_message(self, client, userdata, msg):
+        """Handle incoming MQTT messages."""
+        payload = msg.payload
+        try:
+            raw_text = gzip.decompress(payload).decode('utf-8')
+        except Exception:
+            raw_text = payload.decode('utf-8')
+        
+        for line in raw_text.strip().splitlines():
+            try:
+                obj = json.loads(line)
+            except Exception:
+                print("Skipping invalid JSON line", line)
+                continue
+
+            panel_id = obj.get("panel_id","unknown")
+            ts = obj.get("timestamp_utc") or datetime.now(timezone.utc).isoformat()
+
+            if is_duplicate(panel_id, ts):
+                continue
+
+            self._write(obj, ts)
