@@ -82,3 +82,6 @@ class CentralIngest:
                 print("influxdb_client not available; writing fallback JSONL")
             else:
                 print("INFLUX_URL not set; writing fallback JSONL")
+    def _on_connect(self, client, userdata, flags, rc):
+        print("Central MQTT connected (rc=%s)" % rc)
+        client.subscribe("panels/+/telemetry", qos=1)
