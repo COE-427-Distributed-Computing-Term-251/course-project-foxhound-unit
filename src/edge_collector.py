@@ -19,6 +19,7 @@ import sys
 DB_PATH = "edge_buffer.db"
 
 def init_db():
+    """Create outbox table for failed message persistence."""
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("""CREATE TABLE IF NOT EXISTS outbox (
@@ -31,6 +32,7 @@ def init_db():
     conn.close()
 
 def push_outbox(topic, payload):
+    """Queue a failed message for retry."""
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("INSERT INTO outbox (topic, payload, created_at) VALUES (?, ?, ?)",
@@ -39,6 +41,7 @@ def push_outbox(topic, payload):
     conn.close()
 
 def pop_outbox():
+    """Retrieve and remove oldest queued message."""
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT id, topic, payload FROM outbox ORDER BY id LIMIT 1")
@@ -53,7 +56,10 @@ def pop_outbox():
     return id_, topic, payload
 
 class EdgeCollector:
+    """Batches and publishes telemetry to MQTT with compression and retry."""
+
     def __init__(self, mqtt_host, mqtt_port, site_id, batch_size=250, batch_secs=2):
+        """Initialize collector with MQTT config and batch parameters."""
         self.site_id = site_id
         self.batch_size = batch_size
         self.batch_secs = batch_secs
@@ -69,19 +75,23 @@ class EdgeCollector:
         self.outbox_q = queue.Queue()
 
     def on_connect(self, client, userdata, flags, rc):
+        """Callback when MQTT connection established."""
         print("MQTT connected")
         self.connected = True
 
     def on_disconnect(self, client, userdata, rc):
+        """Callback when MQTT connection lost."""
         print("MQTT disconnected")
         self.connected = False
 
     def connect(self):
+        """Connect to MQTT broker with auto-reconnect."""
         self.mqtt.reconnect_delay_set(min_delay=1, max_delay=30)
         self.mqtt.connect_async(self.mqtt_host, self.mqtt_port, keepalive=60)
         self.mqtt.loop_start()
 
     def _send_batch(self, batch):
+        """Compress and publish batch, fallback to outbox on failure."""
         topic = f"panels/{self.site_id}/telemetry"
         raw = ("\n".join(batch)).encode("utf-8")
         payload = gzip.compress(raw)
@@ -99,6 +109,7 @@ class EdgeCollector:
             push_outbox(topic, payload)
 
     def send_outbox_loop(self):
+        """Continuously retry sending queued messages."""
         while not self.stop_event.is_set():
             # try to send one outbox item
             id_, topic, payload = pop_outbox()
@@ -121,6 +132,7 @@ class EdgeCollector:
                 time.sleep(1.0)
 
     def add_line(self, line):
+        """Add line to buffer, flush if batch size reached."""
         # line expected to be JSON or CSV string; 
         with self.lock:
             self.buffer.append(line)
@@ -128,6 +140,7 @@ class EdgeCollector:
                 self._flush_locked()
 
     def _flush_locked(self):
+        """Extract and send buffered batch (must hold lock)."""
         if not self.buffer:
             return
         batch = self.buffer[:]
@@ -136,16 +149,18 @@ class EdgeCollector:
         self._send_batch(batch)
 
     def flush(self):
+        """Thread-safe flush of current buffer."""
         with self.lock:
             self._flush_locked()
 
     def periodic_flush_loop(self):
+        """Flush buffer at regular intervals."""
         while not self.stop_event.is_set():
             time.sleep(self.batch_secs)
             self.flush()
 
     def spawn_emulators_and_tail(self, emulator_cmds):
-        # spawn processes and read their stdout lines
+        """Launch emulator processes and read their stdout."""
         procs = []
         for cmd in emulator_cmds:
             p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -164,10 +179,11 @@ class EdgeCollector:
                         else:
                             continue
                     self.add_line(line.strip())
-                time.sleep(0.001)
+                time.sleep(0.001) # Prevent CPU spinning
         except KeyboardInterrupt:
             self.stop_event.set()
         finally:
+        # Clean up processes
             for p in procs:
                 try:
                     p.terminate()
@@ -175,15 +191,17 @@ class EdgeCollector:
                     pass
 
     def run(self, emulator_cmds):
+        """Main orchestration: init DB, connect MQTT, start threads."""
         init_db()
         self.connect()
+        # Start background threads
         t1 = threading.Thread(target=self.periodic_flush_loop, daemon=True)
         t2 = threading.Thread(target=self.send_outbox_loop, daemon=True)
         t1.start()
         t2.start()
         print("Starting emulator tails (press Ctrl-C to stop)...")
         self.spawn_emulators_and_tail(emulator_cmds)
-        # stop
+         # Graceful shutdown
         self.stop_event.set()
         self.flush()
         time.sleep(0.5)
