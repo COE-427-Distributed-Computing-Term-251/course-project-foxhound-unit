@@ -108,3 +108,37 @@ class CentralIngest:
                 continue
 
             self._write(obj, ts)
+
+    def _write(self, obj, ts):
+        """write telemetry data to InfluxDB or fallback file."""
+        # InfluxDB mode:
+        if self.write_api is not None:
+            try:
+                point = (
+                    Point("panel")
+                    .tag("panel_id", obj["panel_id"])
+                    .field("power", float(obj.get("power", 0)))
+                    .field("voltage", float(obj.get("voltage", 0)))
+                    .field("current", float(obj.get("current", 0)))
+                    .field("temperature", float(obj.get("temperature", 0)))
+                    .field("irradiance", float(obj.get("irradiance", 0)))
+                    .field("status", str(obj.get("status", 0)))
+                    .time(ts, WritePrecision.NS)
+                )
+                self.write_api.write(
+                    bucket=os.environ.get("INFLUX_BUCKET", "telemetry"),
+                    org=os.environ.get("INFLUX_ORG", "org"),
+                    record=point
+                    )
+                print(f"Wrote to InfluxDB: panel_id={obj['panel_id']} ts={ts}")
+                return
+            except Exception as e:
+                print("InfluxDB write failed:", e)
+                
+        # Fallback to JSONL file
+        try:
+            with open(FALLBACK_FILE, 'a') as f:
+                f.write(json.dumps(obj) + '\n')
+            print(f"Wrote to fallback file: panel_id={obj['panel_id']} ts={ts}")
+        except Exception as e:
+            print("Fallback write failed:", e)
