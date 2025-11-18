@@ -52,7 +52,6 @@ def pop_outbox():
     conn.close()
     return id_, topic, payload
 
-# Add class with __init__, on_connect, on_disconnect, connect methods:
 class EdgeCollector:
     def __init__(self, mqtt_host, mqtt_port, site_id, batch_size=250, batch_secs=2):
         self.site_id = site_id
@@ -81,3 +80,42 @@ class EdgeCollector:
         self.mqtt.reconnect_delay_set(min_delay=1, max_delay=30)
         self.mqtt.connect_async(self.mqtt_host, self.mqtt_port, keepalive=60)
         self.mqtt.loop_start()
+
+    def _send_batch(self, batch):
+        topic = f"panels/{self.site_id}/telemetry"
+        raw = ("\n".join(batch)).encode("utf-8")
+        payload = gzip.compress(raw)
+        try:
+            if self.connected:
+                info = self.mqtt.publish(topic, payload, qos=1)
+                info.wait_for_publish()
+                if info.rc == mqtt.MQTT_ERR_SUCCESS:
+                    # success
+                    return
+            # if not connected or publish failed:
+            raise RuntimeError("MQTT not connected or publish failed")
+        except Exception as ex:
+            print("Publish failed -> store batch to outbox:", ex)
+            push_outbox(topic, payload)
+
+    def send_outbox_loop(self):
+        while not self.stop_event.is_set():
+            # try to send one outbox item
+            id_, topic, payload = pop_outbox()
+            if id_ is None:
+                time.sleep(1.0)
+                continue
+            try:
+                if self.connected:
+                    info = self.mqtt.publish(topic, payload, qos=1)
+                    info.wait_for_publish()
+                    if info.rc != mqtt.MQTT_ERR_SUCCESS:
+                        # push back
+                        push_outbox(topic, payload)
+                        time.sleep(1.0)
+                else:
+                    push_outbox(topic, payload)
+                    time.sleep(1.0)
+            except Exception as e:
+                push_outbox(topic, payload)
+                time.sleep(1.0)
