@@ -159,36 +159,30 @@ class EdgeCollector:
             time.sleep(self.batch_secs)
             self.flush()
 
-    def spawn_emulators_and_tail(self, emulator_cmds):
-        """Launch emulator processes and read their stdout."""
-        procs = []
-        for cmd in emulator_cmds:
-            p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            procs.append(p)
+    def spawn_emulator_and_tail(self, emulator_cmd):
+        """Launch a single emulator process and read its stdout."""
+        p = subprocess.Popen(emulator_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         try:
             while not self.stop_event.is_set():
-                for p in procs:
-                    if p.stdout is None:
+                if p.stdout is None:
+                    continue
+                line = p.stdout.readline()
+                if not line:
+                    if p.poll() is not None:
+                        # Process ended
+                        break
+                    else:
                         continue
-                    line = p.stdout.readline()
-                    if not line:
-                        # process may have ended; check return code
-                        if p.poll() is not None:
-                            # process ended; continue
-                            continue
-                        else:
-                            continue
-                    self.add_line(line.strip())
-                time.sleep(0.001) # Prevent CPU spinning
+                self.add_line(line.strip())
+                time.sleep(0.001)  # Prevent CPU spinning
         except KeyboardInterrupt:
             self.stop_event.set()
         finally:
-        # Clean up processes
-            for p in procs:
-                try:
-                    p.terminate()
-                except Exception:
-                    pass
+            try:
+                p.terminate()
+            except Exception:
+                pass
+
 
     def run(self, emulator_cmds):
         """Main orchestration: init DB, connect MQTT, start threads."""
@@ -200,7 +194,7 @@ class EdgeCollector:
         t1.start()
         t2.start()
         print("Starting emulator tails (press Ctrl-C to stop)...")
-        self.spawn_emulators_and_tail(emulator_cmds)
+        self.spawn_emulator_and_tail(emulator_cmds)
          # Graceful shutdown
         self.stop_event.set()
         self.flush()
