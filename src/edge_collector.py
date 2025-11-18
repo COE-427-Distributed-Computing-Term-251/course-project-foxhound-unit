@@ -119,3 +119,27 @@ class EdgeCollector:
             except Exception as e:
                 push_outbox(topic, payload)
                 time.sleep(1.0)
+
+    def add_line(self, line):
+        # line expected to be JSON or CSV string; 
+        with self.lock:
+            self.buffer.append(line)
+            if len(self.buffer) >= self.batch_size:
+                self._flush_locked()
+
+    def _flush_locked(self):
+        if not self.buffer:
+            return
+        batch = self.buffer[:]
+        self.buffer = []
+        # send (non-blocking)
+        self._send_batch(batch)
+
+    def flush(self):
+        with self.lock:
+            self._flush_locked()
+
+    def periodic_flush_loop(self):
+        while not self.stop_event.is_set():
+            time.sleep(self.batch_secs)
+            self.flush()
