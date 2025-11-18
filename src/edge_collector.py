@@ -143,3 +143,48 @@ class EdgeCollector:
         while not self.stop_event.is_set():
             time.sleep(self.batch_secs)
             self.flush()
+
+    def spawn_emulators_and_tail(self, emulator_cmds):
+        # spawn processes and read their stdout lines
+        procs = []
+        for cmd in emulator_cmds:
+            p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            procs.append(p)
+        try:
+            while not self.stop_event.is_set():
+                for p in procs:
+                    if p.stdout is None:
+                        continue
+                    line = p.stdout.readline()
+                    if not line:
+                        # process may have ended; check return code
+                        if p.poll() is not None:
+                            # process ended; continue
+                            continue
+                        else:
+                            continue
+                    self.add_line(line.strip())
+                time.sleep(0.001)
+        except KeyboardInterrupt:
+            self.stop_event.set()
+        finally:
+            for p in procs:
+                try:
+                    p.terminate()
+                except Exception:
+                    pass
+
+    def run(self, emulator_cmds):
+        init_db()
+        self.connect()
+        t1 = threading.Thread(target=self.periodic_flush_loop, daemon=True)
+        t2 = threading.Thread(target=self.send_outbox_loop, daemon=True)
+        t1.start()
+        t2.start()
+        print("Starting emulator tails (press Ctrl-C to stop)...")
+        self.spawn_emulators_and_tail(emulator_cmds)
+        # stop
+        self.stop_event.set()
+        self.flush()
+        time.sleep(0.5)
+        self.mqtt.loop_stop()
