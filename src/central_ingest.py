@@ -56,3 +56,29 @@ def is_duplicate(panel_id, ts):
     conn.commit()
     conn.close()
     return False
+class CentralIngest:
+    def __init__(self, mqtt_host="localhost", mqtt_port=1883):
+        self.mqtt = mqtt.Client(client_id=f"central-{int(time.time())}")
+        self.mqtt.on_connect = self._on_connect
+        self.mqtt.on_message = self._on_message
+        self.mqtt_host = mqtt_host
+        self.mqtt_port = mqtt_port
+
+        # Influx config from env
+        self.influx_client = None
+        self.write_api = None
+        if USE_INFLUXDB and os.environ.get("INFLUX_URL"):
+            try:
+                self.influx_client = InfluxDBClient(url=os.environ["INFLUX_URL"],
+                                                    token=os.environ.get("INFLUX_TOKEN", ""),
+                                                    org=os.environ.get("INFLUX_ORG", "org"))
+                self.write_api = self.influx_client.write_api()
+                print("InfluxDB client configured")
+            except Exception as e:
+                print("InfluxDB init failed:", e)
+                self.influx_client = None
+        else:
+            if not USE_INFLUXDB:
+                print("influxdb_client not available; writing fallback JSONL")
+            else:
+                print("INFLUX_URL not set; writing fallback JSONL")
