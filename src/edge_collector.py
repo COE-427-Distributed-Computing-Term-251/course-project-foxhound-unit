@@ -51,3 +51,33 @@ def pop_outbox():
         id_, topic, payload = None, None, None
     conn.close()
     return id_, topic, payload
+
+# Add class with __init__, on_connect, on_disconnect, connect methods:
+class EdgeCollector:
+    def __init__(self, mqtt_host, mqtt_port, site_id, batch_size=250, batch_secs=2):
+        self.site_id = site_id
+        self.batch_size = batch_size
+        self.batch_secs = batch_secs
+        self.buffer = []
+        self.lock = threading.Lock()
+        self.mqtt = mqtt.Client(client_id=f"edge-{site_id}-{int(time.time())}")
+        self.mqtt.on_connect = self.on_connect
+        self.mqtt.on_disconnect = self.on_disconnect
+        self.mqtt_host = mqtt_host
+        self.mqtt_port = mqtt_port
+        self.connected = False
+        self.stop_event = threading.Event()
+        self.outbox_q = queue.Queue()
+
+    def on_connect(self, client, userdata, flags, rc):
+        print("MQTT connected")
+        self.connected = True
+
+    def on_disconnect(self, client, userdata, rc):
+        print("MQTT disconnected")
+        self.connected = False
+
+    def connect(self):
+        self.mqtt.reconnect_delay_set(min_delay=1, max_delay=30)
+        self.mqtt.connect_async(self.mqtt_host, self.mqtt_port, keepalive=60)
+        self.mqtt.loop_start()
