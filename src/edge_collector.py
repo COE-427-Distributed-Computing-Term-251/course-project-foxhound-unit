@@ -188,3 +188,18 @@ class EdgeCollector:
         self.flush()
         time.sleep(0.5)
         self.mqtt.loop_stop()
+        
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--mqtt-host", default="localhost")
+    parser.add_argument("--mqtt-port", type=int, default=1883)
+    parser.add_argument("--site-id", default="site-01")
+    parser.add_argument("--batch-size", type=int, default=200)
+    parser.add_argument("--batch-secs", type=int, default=2)
+    parser.add_argument("--emulator-cmd", action="append", required=True,
+                        help="Command to run an emulator instance; pass multiple times")
+    args = parser.parse_args()
+
+    collector = EdgeCollector(args.mqtt_host, args.mqtt_port, args.site_id,
+                              batch_size=args.batch_size, batch_secs=args.batch_secs)
+    collector.run(args.emulator_cmd)
