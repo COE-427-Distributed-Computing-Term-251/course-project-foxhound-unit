@@ -134,7 +134,7 @@ class CentralIngest:
                 return
             except Exception as e:
                 print("InfluxDB write failed:", e)
-                
+
         # Fallback to JSONL file
         try:
             with open(FALLBACK_FILE, 'a') as f:
@@ -142,3 +142,20 @@ class CentralIngest:
             print(f"Wrote to fallback file: panel_id={obj['panel_id']} ts={ts}")
         except Exception as e:
             print("Fallback write failed:", e)
+        
+    def run(self):
+        """Start the MQTT client loop."""
+        init_dedup_db()
+        self.mqtt.connect(self.mqtt_host, self.mqtt_port, keepalive=60)
+        print("Central Ingest service is running...")
+        self.mqtt.loop_forever()
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--mqtt-host", default="localhost")
+    parser.add_argument("--mqtt-port", type=int, default=1883)
+    args = parser.parse_args()
+
+    ingest = CentralIngest(mqtt_host=args.mqtt_host, mqtt_port=args.mqtt_port)
+    ingest.run()
