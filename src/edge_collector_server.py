@@ -27,6 +27,9 @@ from datetime import datetime, timezone
 
 import paho.mqtt.client as mqtt
 
+# Import the RecordsHandler
+from records_handler import RecordsHandler
+
 DB_PATH = "edge_buffer.db"
 DEFAULT_PORT = 9000
 DEFAULT_BATCH_SIZE = 250
@@ -142,6 +145,9 @@ class EdgeCollectorServer:
         self.buffer = []
         self.lock = threading.Lock()
 
+        # Records handler for validation
+        self.records_handler = RecordsHandler()
+
         # MQTT setup - use a stable client id and persistent session so broker can queue for offline subscribers
         # Note: stable client id allows some brokers to queue messages for disconnected central subscribers.
         self.mqtt = mqtt.Client(client_id=f"edge-{site_id}", clean_session=False)
@@ -166,6 +172,7 @@ class EdgeCollectorServer:
             "messages_received": 0,   # messages read from TCP
             "messages_sent": 0,       # messages successfully published to MQTT (counts original messages inside batches)
             "messages_queued": 0,     # messages persisted to outbox (counts original messages inside payloads)
+            "messages_invalid": 0,    # messages rejected due to validation errors
             "active_connections": 0,
             "bytes_received": 0,
             "bytes_sent": 0
@@ -193,6 +200,28 @@ class EdgeCollectorServer:
         self.mqtt.connect_async(self.mqtt_host, self.mqtt_port, keepalive=60)
         self.mqtt.loop_start()
         print(f"→ Connecting to MQTT broker at {self.mqtt_host}:{self.mqtt_port}")
+
+    # -------------------------
+    # Record validation and processing
+    # -------------------------
+    def process_and_validate_line(self, line):
+        """
+        Process line through RecordsHandler, log errors, and return validated JSON or None.
+        """
+        try:
+            validated_json = self.records_handler.process_line(line)
+            if validated_json is not None:
+                return validated_json
+        except ValueError as e:
+            with self.stats_lock:
+                self.stats["messages_invalid"] += 1
+            print(f"✗ Invalid record skipped: {e} - Line: {line[:100]}...")
+        except Exception as e:
+            with self.stats_lock:
+                self.stats["messages_invalid"] += 1
+            print(f"✗ Unexpected error processing record: {e} - Line: {line[:100]}...")
+        
+        return None
 
     # -------------------------
     # Sending / batching
@@ -232,12 +261,17 @@ class EdgeCollectorServer:
                 self.stats["messages_queued"] += msg_count
 
     def add_line(self, line):
-        """Add line to buffer, flush if batch size reached."""
+        """Validate line and add to buffer if valid, flush if batch size reached."""
         if not line or not line.strip():
             return
 
+        # Validate and process the line
+        validated_json = self.process_and_validate_line(line)
+        if validated_json is None:
+            return  # Skip invalid records
+
         with self.lock:
-            self.buffer.append(line.strip())
+            self.buffer.append(validated_json)  # Store validated JSON string
             with self.stats_lock:
                 self.stats["messages_received"] += 1
 
@@ -393,6 +427,7 @@ class EdgeCollectorServer:
                 print(f"  Messages received:  {self.stats['messages_received']}")
                 print(f"  Messages sent:      {self.stats['messages_sent']}")
                 print(f"  Messages queued:    {self.stats['messages_queued']}")
+                print(f"  Messages invalid:   {self.stats['messages_invalid']}")
                 print(f"  Bytes received:     {self.stats['bytes_received']:,}")
                 print(f"  Bytes sent (gzip):  {self.stats['bytes_sent']:,}")
                 if self.stats['bytes_received'] > 0:
