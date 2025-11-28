@@ -29,7 +29,11 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-from influxdb_client import InfluxDBClient, Point, WritePrecision
+try:
+    from influxdb_client import InfluxDBClient, WriteOptions
+except Exception:
+    InfluxDBClient = None
+    WriteOptions = None
 
 # ---------------------------------------------------------
 # Configuration
