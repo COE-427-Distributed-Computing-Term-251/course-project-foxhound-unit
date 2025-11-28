@@ -156,13 +156,4 @@ pytest
 
 ---
 
-## License
 
-This repository is licensed under the PolyForm Noncommercial 1.0.0 license. See the `LICENSE` file for full terms. For commercial or production license inquiries, contact the repository/project owner.
-
----
-
-If you want, I can:
-- Add a `docker-compose.yml` example for running the generator and collector,
-- Add a `.github/workflows` CI workflow for linting and pytest,
-- Or add a `CONTRIBUTING.md` checklist for PR and issue standards.
