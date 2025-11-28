@@ -1,6 +1,7 @@
 # Course Project — Foxhound Unit
 
-![System Diagram](diagram.jpeg)
+![System Diagram](https://raw.githubusercontent.com/COE-427-Distributed-Computing-Term-251/course-project-foxhound-unit/7a2404ba13b9987da23056fb735e15429a2322cf/docs/diagram.jpeg)
+
 
 Lightweight toolkit to generate per-panel solar telemetry, ingest it, and run basic validation/processing. This repository includes a telemetry generator, ingest utilities, a simple edge collector server and handlers, and a small set of tests.
 
