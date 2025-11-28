@@ -10,17 +10,16 @@ Important: The repository is licensed under the PolyForm Noncommercial 1.0.0 lic
 
 ## Contents
 
-- `src/solar_panel_telemetry.py` — synthetic telemetry generator (CSV/JSONL). See the script docstring for usage examples.
-- `src/edge_collector_server.py` — simple edge-level collector/server.
-- `src/central_ingest.py` — ingest/process script (reads files or stdin depending on options).
-- `src/records_handler.py` — utilities for handling and validating telemetry records.
-- `src/ingest_fallback.jsonl` — sample fallback input for tests and ingest.
-- `data/` — sample data & instructions.
-- `tests/` — unit tests (pytest).
-- `requirements.txt` — Python third-party dependencies.
-- `LICENSE` — PolyForm Noncommercial 1.0.0.
-- `THIRD_PARTY_NOTICES.md` — third-party notices and licenses.
-
+- src/solar_panel_telemetry.py — generate synthetic telemetry (CSV or JSONL).
+- src/edge_collector_server.py — simple local collector/server for telemetry.
+- src/central_ingest.py — ingest/process telemetry from file or stdin.
+- src/records_handler.py — validate and normalize telemetry records.
+- src/ingest_fallback.jsonl — small sample input for quick tests.
+- data/ — small sample files and instructions.
+- tests/ — pytest unit/integration tests.
+- requirements.txt — runtime dependencies.
+- LICENSE — PolyForm Noncommercial 1.0.0 (noncommercial use only).
+- THIRD_PARTY_NOTICES.md — third-party library notices and licenses.
 ---
 
 ## Requirements
