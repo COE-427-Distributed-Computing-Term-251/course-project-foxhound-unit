@@ -1,85 +1,142 @@
-# Course Project — Foxhound Unit
+[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/DbENLCjU)
+[![Open in Visual Studio Code](https://classroom.github.com/assets/open-in-vscode-2e0aaae1b6195c2367325f4f02e2d04e9abb55f0b24a779b69b11b9e10269abc.svg)](https://classroom.github.com/online_ide?assignment_repo_id=21680952&assignment_repo_type=AssignmentRepo)
+# Quick Guide
+---
 
-![System Diagram](diagram.jpeg)
+# Repository Template
 
-Lightweight toolkit to generate per-panel solar telemetry, ingest it, and run basic validation/processing. This repository includes a telemetry generator, ingest utilities, a simple edge collector server and handlers, and a small set of tests.
+This repository was created from the **Project Template** for projects.
 
-Important: The repository is licensed under the PolyForm Noncommercial 1.0.0 license. Code and data are free for academic, research, and personal (noncommercial) use. Commercial/production usage requires a separate agreement.
+> **Audience.** KFUPM faculty, researchers, students, collaborators, and sponsored projects.
 
 ---
 
-## Contents
-- src/solar_panel_telemetry.py — telemetry generator (CSV/JSONL)
-- src/edge_collector_server.py — collector
-- src/central_ingest.py — MQTT subscriber / ingest
-- src/records_handler.py — validation utilities (importable module)
-- src/ingest_fallback.jsonl — sample input
-- data/ — sample data
-- tests/ — pytest tests
-- requirements.txt — dependencies
-- LICENSE — PolyForm Noncommercial 1.0.0
-- THIRD_PARTY_NOTICES.md — third-party notices
+## Quick start
 
-## Requirements
-- Python 3.8+
-- Install dependencies: pip install -r requirements.txt
+1. Review **License** (below) and adjust if your project needs a different license.
+2. Push your code and, if needed, enable GitHub Actions on the first commit.
 
-## Installation
+---
 
-Option A — venv (Windows/macOS/Linux)
-- Windows (PowerShell)
-  ```powershell
-  cd c:\Users\aliob\OneDrive\Desktop\webs\course-project-foxhound-unit-master
-  python -m venv .venv
-  .\.venv\Scripts\Activate.ps1
-  python -m pip install --upgrade pip
-  pip install -r requirements.txt
+## License (read first)
+
+* **Code**: Licensed under **PolyForm Noncommercial 1.0.0**.
+  * Free for **academic, research, and personal** (noncommercial) use.
+  * **Commercial / production / monetized** use requires a separate agreement.
+  * Keep copyright and license notices.
+* **Data and Models**: Default **PolyForm Noncommercial 1.0.0**. It should follow similar constraints to the code.
+
+---
+
+## Code-sharing practices (minimum standard)
+
+**1) Requirements / dependencies**
+
+* For example, if the project uses Python, provide **Python runtime** requirements in `requirements.txt` and dev tools in `requirements-dev.txt`.
+  Example (edit to fit your project):
+
+  ```text
+  numpy~=1.26
+  scipy~=1.13
+  pandas~=2.2
+  matplotlib~=3.8
+  scikit-learn~=1.5
+  jupyterlab~=4.2
   ```
-- macOS / Linux
-  ```bash
-  cd /path/to/course-project-foxhound-unit-master
-  python3 -m venv .venv
-  source .venv/bin/activate
-  python -m pip install --upgrade pip
-  pip install -r requirements.txt
-  ```
+* If you use Conda: add `environment.yml`.
+* If you use MATLAB: list toolboxes in `matlab-requirements.txt` and include `setup.m`.
+* Record **minimum versions** (Python/Matlab/CUDA/etc.) in the README.
 
-Option B — conda
+**2) Installation**
+
+Provide one clear path (pick one and verify it works):
+
 ```bash
-conda create -n foxhound python=3.8
-conda activate foxhound
+# Option A: venv
+python -m venv .venv
+source .venv/bin/activate
+pip install -U pip
 pip install -r requirements.txt
+pip install -r requirements-dev.txt  # if developing
+
+# Option B: conda
+conda env create -f environment.yml
+conda activate your-env
 ```
 
-## Usage (examples)
+**3) How to run**
 
-Note: Run any script with `--help` to confirm flags.
+It is highly recommended to include a minimal runnable example for reproduction:
 
-1) Generate telemetry (CSV)
 ```bash
-python src/solar_panel_telemetry.py --panels 100 --start "2025-10-18T06:00:00" --hours 12 --step 60 --out telemetry.csv
+python -m src   # or: python scripts/train.py --config configs/base.yaml
 ```
 
-2) Generate JSONL (stdout)
-```bash
-python src/solar_panel_telemetry.py --panels 10 --hours 1 --step 30 --format jsonl
+**4) Reproduction**
+
+* Pin seeds / deterministic flags where possible; note any nondeterminism.
+* Provide **data access** instructions (do not commit large/raw/PII data).
+* Use **sample data** or a **download script** with license/source noted.
+* Export environment details:
+
+  ```bash
+  python -V
+  pip freeze > reproducible-requirements.txt
+  ```
+
+**5) Secrets & credentials**
+
+* **Never commit secrets** (passwords, API keys, tokens).
+* Use `.env` files locally (already git-ignored) and **GitHub Actions Secrets** for CI. Make sure to ignore this file if you are using a custom .gitignore.
+* Rotate/change secret keys that are accidentally exposed.
+
+**6) Data & models**
+
+* Big artefacts → use Git LFS or Hugging Face Repositories.
+* Clearly state licenses in for data and for the project.
+* If using third-party datasets/models, ensure you have redistribution rights and list them in `THIRD_PARTY_NOTICES.md`.
+
+**7) Testing & CI**
+
+* Add at least one **unit test** in `tests/` and keep CI green.
+* This template enables **ruff/flake8/black/pytest**, **CodeQL**, and **Dependabot**.
+
+**8) Structure & docs**
+
+It is recommended to share the repo structure to ease the getting-started phase. You can follow this standard layout:
+
+```
+.
+├── src/                      # Python package or modules
+├── notebooks/                # Experiments (keep deterministic & small)
+├── data/                     # (No confidential/PII; see data README)
+├── models/                   # Exported/converted artefacts
+├── docs/                     # Project documentation
+├── .github/                  # CI, issue and PR templates
+├── LICENSE / LICENSE-*.      # Licensing files
+└── THIRD_PARTY_NOTICES.md
+└── README.md                 # Overview
+└── requirements.text         # requirements to run the present project
 ```
 
-3) Start edge collector (example flags)
-```bash
-python src/edge_collector_server.py --mqtt-host localhost --mqtt-port 1883 --site-id site-01 --port 9000
-```
+Bonus: Add a short **project overview**, **roadmap**, and **limitations** in this README.
 
-4) Start central ingest (MQTT subscriber)
-```bash
-python src/central_ingest.py --mqtt-host localhost --mqtt-port 1883
-```
+---
 
-## Tests
-```bash
-pip install pytest
-pytest
-```
+## Project status
 
-## License
-PolyForm Noncommercial 1.0.0 — see LICENSE.
+* **Stage**: draft / alpha / beta / stable (choose one).
+* **Maintainers**: `@github-handle1`, `@github-handle2` (team: `@github/<team>`).
+* **Further Contact**: [ayaz.khan@kfupm.edu.sa](mailto:ayaz.khan@kfupm.edu.sa)
+
+---
+
+## Acknowledgements
+
+This work is part of the course project at KFUPM.
+
+---
+
+### Legal
+
+© {YEAR} KFUPM. Code under **PolyForm Noncommercial 1.0.0**; data under **CC BY 4.0**; models under **OpenRAIL-M** unless stated otherwise. Commercial use requires a license from the center.
