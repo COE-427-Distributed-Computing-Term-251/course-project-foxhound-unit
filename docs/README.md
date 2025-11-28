@@ -1,3 +1,13 @@
+# Course Project — Foxhound Unit
+
+![System Diagram](diagram.jpeg)
+
+Lightweight toolkit to generate per-panel solar telemetry, ingest it, and run basic validation/processing. This repository includes a telemetry generator, ingest utilities, a simple edge collector server and handlers, and a small set of tests.
+
+Important: The repository is licensed under the PolyForm Noncommercial 1.0.0 license. Code and data are free for academic, research, and personal (noncommercial) use. Commercial/production usage requires a separate agreement.
+
+---
+
 ## Contents
 - src/solar_panel_telemetry.py — telemetry generator (CSV/JSONL)
 - src/edge_collector_server.py — collector
@@ -65,14 +75,7 @@ python src/edge_collector_server.py --mqtt-host localhost --mqtt-port 1883 --sit
 python src/central_ingest.py --mqtt-host localhost --mqtt-port 1883
 ```
 
-5) Use records_handler from Python (import)
-```bash
-python - <<'PY'
-from src.records_handler import RecordsHandler
-rh = RecordsHandler()
-print(rh.process_line('{"timestamp": "..."}'))
-PY
-```
+
 
 ## Tests
 ```bash
