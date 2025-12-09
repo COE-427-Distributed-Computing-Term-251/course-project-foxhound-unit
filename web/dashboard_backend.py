@@ -1,18 +1,11 @@
-#!/usr/bin/env python3
-"""
-dashboard_backend.py - Flask backend for Phase 2 solar telemetry dashboard
-Reads from InfluxDB (primary) or ingest_fallback.jsonl (fallback)
-"""
-
 import os
 import json
 import gzip
 from datetime import datetime, timedelta
 from collections import defaultdict
-from flask import Flask, jsonify, send_from_directory, request
+from flask import Flask, jsonify, render_template, send_from_directory, request
 from flask_cors import CORS
 
-# InfluxDB imports (optional)
 try:
     from influxdb_client import InfluxDBClient
     INFLUX_AVAILABLE = True
@@ -20,22 +13,43 @@ except ImportError:
     INFLUX_AVAILABLE = False
     print("influxdb-client not installed, using JSONL fallback only")
 
+#===========================================================================
+# SETUP
+#===========================================================================
+
 app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app)
 
 # Configuration
-INFLUX_URL = os.getenv('INFLUX_URL', 'http://localhost:8086')
-INFLUX_TOKEN = os.getenv('INFLUX_TOKEN', '')
-INFLUX_ORG = os.getenv('INFLUX_ORG', 'solar')
-INFLUX_BUCKET = os.getenv('INFLUX_BUCKET', 'solar_telemetry')
+#NEEDS UPDATE!!!
+INFLUX_URL = os.getenv("INFLUX_URL")
+INFLUX_TOKEN = os.getenv("INFLUX_TOKEN")
+INFLUX_ORG = os.getenv("INFLUX_ORG")
+INFLUX_BUCKET = os.getenv("INFLUX_BUCKET")
 FALLBACK_FILE = 'ingest_fallback.jsonl'
 
-# Global InfluxDB client
+# InfluxDB client
 influx_client = None
 query_api = None
+try:
+    influx_client = InfluxDBClient(
+        url=INFLUX_URL,
+        token=INFLUX_TOKEN,
+        org=INFLUX_ORG
+    )
+    query_api = influx_client.query_api()
+    print("InfluxDB connected!!")
+except Exception as e:
+    print("X InfluxDB disabled:", e)
+
+
+
+
+# ============================================================================
+# INFLUXDB FUNCTIONS
+# ============================================================================
 
 def init_influx():
-    """Initialize InfluxDB client if credentials are provided"""
     global influx_client, query_api
     
     if not INFLUX_AVAILABLE:
@@ -60,7 +74,6 @@ def init_influx():
         return False
 
 def read_jsonl_fallback(minutes=30, max_lines=10000):
-    """Read recent records from JSONL fallback file"""
     if not os.path.exists(FALLBACK_FILE):
         return []
     
@@ -68,7 +81,6 @@ def read_jsonl_fallback(minutes=30, max_lines=10000):
     records = []
     
     try:
-        # Read last N lines efficiently
         with open(FALLBACK_FILE, 'rb') as f:
             # Seek to end and read backwards
             f.seek(0, 2)
@@ -84,7 +96,6 @@ def read_jsonl_fallback(minutes=30, max_lines=10000):
                 chunk = f.read(read_size).decode('utf-8', errors='ignore')
                 lines = chunk.split('\n') + lines
             
-            # Parse most recent lines
             for line in lines[-max_lines:]:
                 line = line.strip()
                 if not line:
@@ -103,6 +114,8 @@ def read_jsonl_fallback(minutes=30, max_lines=10000):
         print(f"Error reading fallback file: {e}")
     
     return records
+
+
 
 # ============================================================================
 # INFLUXDB QUERY FUNCTIONS
@@ -279,12 +292,14 @@ from(bucket: "{INFLUX_BUCKET}")
         print(f"Error querying InfluxDB timeseries: {e}")
         return None
 
-# ============================================================================
+# ==========================
 # JSONL FALLBACK FUNCTIONS
-# ============================================================================
+# ==========================
 
 def compute_fallback_summary(records):
-    """Compute summary from JSONL records"""
+    """
+    Compute summary from JSONL records
+    """
     if not records:
         return {
             'total_power_w': 0.0,
@@ -331,10 +346,12 @@ def compute_fallback_summary(records):
     }
 
 def compute_fallback_strings(records):
-    """Compute per-string aggregates from JSONL records"""
+    """
+    Compute per-string aggregates from JSONL records
+    """
     strings = defaultdict(lambda: {'total_power_w': 0.0, 'panels': set()})
     
-    # Get latest record per panel
+    #latest record per panel
     latest_by_panel = {}
     for rec in records:
         panel_id = rec.get('panel_id')
@@ -364,11 +381,13 @@ def compute_fallback_strings(records):
     return result
 
 def compute_fallback_timeseries(records, entity_type, entity_id):
-    """Compute time-series from JSONL records"""
+    """
+    Compute time-series from JSONL records
+    """
     filter_key = 'panel_id' if entity_type == 'panel' else 'string_id'
     filtered = [r for r in records if r.get(filter_key) == entity_id]
     
-    # Group by 1-minute buckets
+    # Group 1-minute buckets
     buckets = defaultdict(lambda: defaultdict(list))
     
     for rec in filtered:
@@ -402,12 +421,16 @@ def compute_fallback_timeseries(records, entity_type, entity_id):
 
 @app.route('/')
 def index():
-    """Serve dashboard UI"""
-    return send_from_directory('templates', 'index.html')
+    """
+    Serve dashboard UI
+    """
+    return render_template('index.html')
 
 @app.route('/api/summary')
 def api_summary():
-    """Get real-time summary metrics"""
+    """
+    Get real-time summary metrics
+    """
     # Try InfluxDB first
     data = query_influx_summary()
     
@@ -423,7 +446,9 @@ def api_summary():
 
 @app.route('/api/strings')
 def api_strings():
-    """Get per-string aggregates"""
+    """
+    Get per-string aggregates
+    """
     # Try InfluxDB first
     data = query_influx_strings()
     
@@ -439,7 +464,9 @@ def api_strings():
 
 @app.route('/api/timeseries')
 def api_timeseries():
-    """Get time-series data for a panel or string"""
+    """
+    Get time-series data for a panel or string
+    """
     entity_type = request.args.get('type', 'panel')  # 'panel' or 'string'
     entity_id = request.args.get('id')
     minutes = int(request.args.get('minutes', 30))
@@ -467,7 +494,9 @@ def api_timeseries():
 
 @app.route('/api/panels')
 def api_panels():
-    """Get list of all panels with metadata"""
+    """
+    Get list of all panels with metadata
+    """
     # Simple implementation: get distinct panels from recent data
     if query_api:
         try:
