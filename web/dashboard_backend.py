@@ -5,6 +5,9 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from flask import Flask, jsonify, render_template, send_from_directory, request
 from flask_cors import CORS
+from dotenv import load_dotenv
+
+load_dotenv()
 
 try:
     from influxdb_client import InfluxDBClient
@@ -130,7 +133,7 @@ def query_influx_summary():
         # Total power (last 30s average)
         power_query = f'''
 from(bucket: "{INFLUX_BUCKET}")
-  |> range(start: -30s)
+  |> range(start: -1h)
   |> filter(fn: (r) => r["_measurement"] == "panel_telemetry")
   |> filter(fn: (r) => r["_field"] == "power_w")
   |> mean()
@@ -146,7 +149,7 @@ from(bucket: "{INFLUX_BUCKET}")
         # Active panels (distinct in last 2 min)
         panels_query = f'''
 from(bucket: "{INFLUX_BUCKET}")
-  |> range(start: -2m)
+  |> range(start: -1h)
   |> filter(fn: (r) => r["_measurement"] == "panel_telemetry")
   |> keep(columns: ["panel_id"])
   |> distinct(column: "panel_id")
@@ -177,7 +180,7 @@ from(bucket: "{INFLUX_BUCKET}")
         # Status distribution (last 5 min)
         status_query = f'''
 from(bucket: "{INFLUX_BUCKET}")
-  |> range(start: -5m)
+  |> range(start: -1h)
   |> filter(fn: (r) => r["_measurement"] == "panel_telemetry")
   |> keep(columns: ["status"])
   |> group(columns: ["status"])
@@ -211,7 +214,7 @@ def query_influx_strings():
         # Power per string (last 30s)
         query = f'''
 from(bucket: "{INFLUX_BUCKET}")
-  |> range(start: -30s)
+  |> range(start: -1h)
   |> filter(fn: (r) => r["_measurement"] == "panel_telemetry")
   |> filter(fn: (r) => r["_field"] == "power_w")
   |> group(columns: ["string_id"])
@@ -238,7 +241,7 @@ from(bucket: "{INFLUX_BUCKET}")
         # Panel counts per string
         count_query = f'''
 from(bucket: "{INFLUX_BUCKET}")
-  |> range(start: -2m)
+  |> range(start: -1h)
   |> filter(fn: (r) => r["_measurement"] == "panel_telemetry")
   |> keep(columns: ["string_id", "panel_id"])
   |> group(columns: ["string_id"])
@@ -502,7 +505,7 @@ def api_panels():
         try:
             query = f'''
 from(bucket: "{INFLUX_BUCKET}")
-  |> range(start: -5m)
+  |> range(start: -1h)
   |> filter(fn: (r) => r["_measurement"] == "panel_telemetry")
   |> keep(columns: ["panel_id", "string_id"])
   |> distinct(column: "panel_id")
@@ -533,6 +536,25 @@ from(bucket: "{INFLUX_BUCKET}")
     
     return jsonify({'panels': list(panels_dict.values()), 'source': 'jsonl_fallback'})
 
+#Temp route for debugging
+@app.route("/api/raw")
+def api_raw():
+    result = query_api.query(f'''
+from(bucket:"{INFLUX_BUCKET}")
+  |> range(start:-30m)
+  |> limit(n:20)
+''')
+    rows = []
+    for table in result:
+        for r in table.records:
+            rows.append({
+                "time": r.get_time().isoformat(),
+                "panel": r.values.get("panel_id"),
+                "field": r.get_field(),
+                "value": r.get_value()
+            })
+    return jsonify(rows)
+
 # ============================================================================
 # MAIN
 # ============================================================================
@@ -556,21 +578,4 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
 
 
-#Temp route for debugging
-@app.route("/api/raw")
-def api_raw():
-    result = query_api.query(f'''
-from(bucket:"{INFLUX_BUCKET}")
-  |> range(start:-30m)
-  |> limit(n:20)
-''')
-    rows = []
-    for table in result:
-        for r in table.records:
-            rows.append({
-                "time": r.get_time().isoformat(),
-                "panel": r.values.get("panel_id"),
-                "field": r.get_field(),
-                "value": r.get_value()
-            })
-    return jsonify(rows)
+
