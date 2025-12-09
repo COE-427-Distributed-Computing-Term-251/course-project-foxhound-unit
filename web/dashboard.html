@@ -575,7 +575,7 @@
           if (result.data.length === 0) {
             showEmptyPanelGrid();
             document.getElementById("totalPower").textContent = "0.00 kW";
-            document.getElementById("activePanels").textContent = "0 / 0";
+            document.getElementById("activePanels").textContent = "0 ";
             document.getElementById("avgIrradiance").textContent = "0.0 W/m²";
             return;
           }
@@ -586,9 +586,7 @@
             (sum, p) => sum + (p.power_w || 0),
             0
           );
-          const activePanels = result.data.filter(
-            (p) => (p.power_w || 0) > 1
-          ).length;
+          const activePanels = result.data.length;
           const avgIrr =
             result.data.reduce((sum, p) => sum + (p.irradiance_wm2 || 0), 0) /
             result.data.length;
@@ -597,7 +595,7 @@
             (totalPower / 1000).toFixed(2) + " kW";
           document.getElementById(
             "activePanels"
-          ).textContent = `${activePanels} / ${result.data.length}`;
+          ).textContent = `${activePanels} `;
           document.getElementById("avgIrradiance").textContent =
             (isNaN(avgIrr) ? 0 : avgIrr).toFixed(1) + " W/m²";
         } catch (error) {
@@ -641,7 +639,9 @@
 
       async function fetchFaults() {
         try {
-          const response = await fetch(`${API_BASE_URL}/faults`);
+          const response = await fetch(
+            `${API_BASE_URL}/faults?start=${timeRange}`
+          );
 
           if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
@@ -724,7 +724,6 @@
           <div class="empty-state">
             <div class="empty-state-icon">🔌</div>
             <div>No panel data available</div>
-            <div style="font-size: 0.8em; margin-top: 10px;">Start the influx_writer.py to generate data</div>
           </div>
         `;
       }
