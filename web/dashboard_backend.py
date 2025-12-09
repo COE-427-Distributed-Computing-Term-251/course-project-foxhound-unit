@@ -554,3 +554,23 @@ if __name__ == '__main__':
     print("=" * 60 + "\n")
     
     app.run(host='0.0.0.0', port=5000, debug=True)
+
+
+#Temp route for debugging
+@app.route("/api/raw")
+def api_raw():
+    result = query_api.query(f'''
+from(bucket:"{INFLUX_BUCKET}")
+  |> range(start:-30m)
+  |> limit(n:20)
+''')
+    rows = []
+    for table in result:
+        for r in table.records:
+            rows.append({
+                "time": r.get_time().isoformat(),
+                "panel": r.values.get("panel_id"),
+                "field": r.get_field(),
+                "value": r.get_value()
+            })
+    return jsonify(rows)

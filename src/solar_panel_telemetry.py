@@ -79,7 +79,7 @@ def parse_args() -> argparse.Namespace:
 
 def utc_now_truncated() -> datetime:
     # ensure naive UTC for consistency, then make it timezone-aware UTC
-    return datetime.utcnow().replace(microsecond=0).replace(tzinfo=timezone.utc)
+    return datetime.now().replace(microsecond=0).replace(tzinfo=timezone.utc)
 
 def make_time_range(start_utc: datetime, duration: timedelta, step_s: int) -> Iterator[datetime]:
     current = start_utc

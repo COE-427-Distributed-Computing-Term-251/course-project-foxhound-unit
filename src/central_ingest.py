@@ -22,7 +22,7 @@ import os
 import sqlite3
 import time
 from datetime import datetime, timezone
-
+from influxdb_client import Point
 import paho.mqtt.client as mqtt
 from dotenv import load_dotenv
 
