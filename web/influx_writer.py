@@ -9,15 +9,14 @@ This script bridges the telemetry generator with InfluxDB, allowing you to:
 3. See live updates in your dashboard
 
 Usage:
-    # Run continuously with 5 panels, updating every 10 seconds
-    python influx_writer.py --panels 5 --interval 10
-    
-    # Run for 1 hour with 20 panels
-    python influx_writer.py --panels 20 --duration 60 --interval 30
-    
-    # Backfill historical data for last 24 hours
-    python influx_writer.py --panels 10 --backfill 24h --interval 60
+    # First writer: 10 panels → P001..P010
+    python influx_writer.py --panels 10 --interval 10 --offset 0
 
+    # Second writer: 20 panels → P011..P030
+    python influx_writer.py --panels 20 --interval 10 --offset 10
+        
+    # Backfill historical data for last 24 hours
+    python influx_writer.py --panels 50 --backfill 24h --seed 123
 Requirements:
     pip install influxdb-client python-dotenv
 """
@@ -70,11 +69,13 @@ FAULT_CATALOG = [
     ("SOILING", "WARNING", 0.005),
 ]
 
-def generate_panel_fleet(n: int, seed: int) -> List[PanelSpec]:
+def generate_panel_fleet(n: int, seed: int, offset: int = 0) -> List[PanelSpec]:
     """Generate a fleet of solar panels with realistic specs."""
     random.seed(seed)
     fleet = []
     for i in range(n):
+        global_index = offset + i          # 0-based index across all panels
+
         p_stc = random.uniform(370, 430)
         v_mppt = random.uniform(33, 40)
         i_stc = p_stc / v_mppt * random.uniform(0.95, 1.05)
@@ -83,10 +84,12 @@ def generate_panel_fleet(n: int, seed: int) -> List[PanelSpec]:
         jitter = random.uniform(0.98, 1.02)
         orient = random.choice([150, 165, 180, 195, 210]) + random.uniform(-5, 5)
         tilt = random.choice([15, 20, 25, 30, 35]) + random.uniform(-2, 2)
-        string = f"S{1 + (i // 5):02d}"  # 5 panels per string
-        
+
+        # 5 panels per string, continuous across offsets
+        string = f"S{1 + (global_index // 5):02d}"
+
         fleet.append(PanelSpec(
-            panel_id=f"P{i+1:03d}",
+            panel_id=f"P{global_index + 1:03d}",
             p_stc_w=p_stc,
             v_mppt=v_mppt,
             i_stc_a=i_stc,
@@ -277,6 +280,12 @@ def main():
     parser.add_argument("--duration", type=int, help="Minutes to run (omit for continuous)")
     parser.add_argument("--backfill", type=str, help="Backfill historical data (e.g., '24h', '7d')")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    parser.add_argument(
+        "--offset",
+        type=int,
+        default=0,
+        help="Panel ID offset (for running multiple writers)"
+    )
     args = parser.parse_args()
     
     # Validate environment
@@ -287,12 +296,13 @@ def main():
     
     # Initialize
     client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
-    fleet = generate_panel_fleet(args.panels, args.seed)
+    fleet = generate_panel_fleet(args.panels, args.seed, args.offset)
+
     
     print("=" * 60)
     print("Solar Panel Telemetry Writer")
     print("=" * 60)
-    print(f"Panels: {args.panels}")
+    print(f"Panels: {args.panels} (offset {args.offset})")
     print(f"Strings: {len(set(p.string_id for p in fleet))}")
     print(f"Update Interval: {args.interval}s")
     print(f"InfluxDB: {INFLUX_URL}")
