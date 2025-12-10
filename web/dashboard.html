@@ -1117,25 +1117,27 @@
           const result = await response.json();
           connectionState.current = true;
 
-          if (result.data && Array.isArray(result.data) && result.data.length > 0) {
-            // Store successful data
-            lastKnownPanelData = result.data;
-            allPanelsData = result.data;
-            
-            // Apply current filter
-            filterPanels();
-            
-            // Update header stats with ALL panels (not just filtered)
-            const totalPower = allPanelsData.reduce(
-              (sum, p) => sum + (p.power_w || 0),
-              0
-            );
-            const avgIrr =
-              allPanelsData.reduce((sum, p) => sum + (p.irradiance_wm2 || 0), 0) /
-              allPanelsData.length;
+          const panels = (result.data && Array.isArray(result.data)) ? result.data : [];
 
-            updateHeaderStats(allPanelsData, totalPower, avgIrr);
-          }
+          lastKnownPanelData = panels;
+          allPanelsData = panels;
+
+          // Update the panel grid
+          filterPanels();
+
+          // Update header stats
+          const totalPower = allPanelsData.reduce(
+            (sum, p) => sum + (p.power_w || 0),
+            0
+          );
+
+          const avgIrr =
+            allPanelsData.length > 0
+              ? allPanelsData.reduce((sum, p) => sum + (p.irradiance_wm2 || 0), 0) /
+                allPanelsData.length
+              : 0;
+
+          updateHeaderStats(allPanelsData, totalPower, avgIrr);
           
         } catch (error) {
           console.error("[fetchCurrentData] Error:", error);
