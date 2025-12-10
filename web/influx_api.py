@@ -11,7 +11,7 @@ Optimizations:
 """
 
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -230,9 +230,22 @@ def get_current_readings():
         
         # Convert to list with proper types
         panel_list = []
+        now = datetime.now(timezone.utc)
+        STALE_SECONDS = 15  # consider panel inactive if no data in the last 15s
+
         for panel_id, data in panels_dict.items():
+            ts = data.get('timestamp')
+            if not ts:
+                # no timestamp at all → skip
+                continue
+
+            # Skip panels that have not reported recently
+            age_seconds = (now - ts).total_seconds()
+            if age_seconds > STALE_SECONDS:
+                continue
+
             panel_list.append({
-                'timestamp': data.get('timestamp').isoformat() if data.get('timestamp') else None,
+                'timestamp': ts.isoformat(),
                 'panel_id': panel_id,
                 'string_id': data.get('string_id', 'UNKNOWN'),
                 'status': data.get('status', 'UNKNOWN'),
@@ -244,13 +257,15 @@ def get_current_readings():
                 'ambient_temp_c': safe_float(data.get('ambient_temp_c')),
                 'cell_temp_c': safe_float(data.get('cell_temp_c')),
                 'orientation_deg': safe_float(data.get('orientation_deg')),
-                'tilt_deg': safe_float(data.get('tilt_deg'))
+                'tilt_deg': safe_float(data.get('tilt_deg')),
             })
         
         return jsonify({
             'data': panel_list,
-            'count': len(panel_list)
+            'count': len(panel_list),
+            'stale_threshold_seconds': STALE_SECONDS
         })
+
         
     except Exception as e:
         print(f"Error in /api/current: {e}")
