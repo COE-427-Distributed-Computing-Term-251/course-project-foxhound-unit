@@ -8,6 +8,8 @@ Important: The repository is licensed under the PolyForm Noncommercial 1.0.0 lic
 
 ---
 
+ **Note:** For this project, you can **go directly to Phase Two** without running the previous phases.
+
 ## Contents
 
 - src/solar_panel_telemetry.py — telemetry generator (CSV/JSONL)
@@ -27,7 +29,7 @@ Important: The repository is licensed under the PolyForm Noncommercial 1.0.0 lic
 - Install dependencies: pip install -r requirements.txt
 
 ## Installation
-
+## Phase One
 Option A — venv (Windows/macOS/Linux)
 
 - Windows (PowerShell)
@@ -53,33 +55,6 @@ Option B — conda
 conda create -n foxhound python=3.8
 conda activate foxhound
 pip install -r requirements.txt
-```
-
-## Phase Two — Running Backend & Frontend
-
-### Backend (InfluxDB API)
-
-To run the backend API in Phase Two, navigate to the `web` directory and start the InfluxDB API service:
-
-If you are on any system (Windows / macOS / Linux):
-```bash
-cd web
-python influx_api.py
-```
-
-If you are on Windows:
-```bash
-cd web
-py .\influx_api.py
-```
-
-### Frontend (Dashboard)
-
-To run the frontend dashboard, navigate to the web directory and open the dashboard file:
-
-```bash
-cd web
-start dashboard.html
 ```
 
 ## Usage (examples)
@@ -110,12 +85,53 @@ python src/edge_collector_server.py --mqtt-host localhost --mqtt-port 1883 --sit
 python src/central_ingest.py --mqtt-host localhost --mqtt-port 1883
 ```
 
+## Phase Two — Running Backend & Frontend
+
+### Backend (InfluxDB API)
+
+To run the backend API in Phase Two, navigate to the `web` directory and start the InfluxDB API service:
+
+If you are on any system (Windows / macOS / Linux):
+```bash
+cd web
+python influx_api.py
+```
+
+If you are on Windows:
+```bash
+cd web
+py .\influx_api.py
+```
+
+### Frontend (Dashboard)
+
+To run the frontend dashboard, navigate to the web directory and open the dashboard file:
+
+```bash
+cd web
+start dashboard.html
+```
+## Usage (examples)
+
+If you are on any system (Windows / macOS / Linux):
+
+```bash
+python influx_writer.py --panels 5 --interval 0
+```
+
+If you are on Windows:
+
+```bash
+py influx_writer.py --panels 5 --interval 0
+```
+
 ## Tests
 
 ```bash
 pip install pytest
 pytest
 ```
+
 
 ## License
 
