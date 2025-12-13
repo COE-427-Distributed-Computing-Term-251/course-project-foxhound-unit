@@ -1,0 +1,1670 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Solar Panel Telemetry Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(
+          135deg,
+          #1a1a2e 0%,
+          #16213e 50%,
+          #0f3460 100%
+        );
+        color: #333;
+        padding: 20px;
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 1600px;
+        margin: 0 auto;
+      }
+
+      header {
+        background: rgba(255, 255, 255, 0.95);
+        padding: 24px 32px;
+        border-radius: 16px;
+        margin-bottom: 24px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        backdrop-filter: blur(10px);
+      }
+
+      h1 {
+        color: #667eea;
+        font-size: 1.8em;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .status-bar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 20px;
+      }
+
+      .status-item {
+        background: linear-gradient(135deg, #f8f9ff 0%, #e8ecff 100%);
+        padding: 16px;
+        border-radius: 12px;
+        border-left: 4px solid #667eea;
+      }
+
+      .status-label {
+        font-size: 0.75em;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        margin-bottom: 4px;
+      }
+
+      .status-value {
+        font-size: 1.6em;
+        font-weight: 700;
+        color: #333;
+      }
+
+      .status-value.power {
+        color: #667eea;
+      }
+      .status-value.panels {
+        color: #28a745;
+      }
+      .status-value.irradiance {
+        color: #ffc107;
+      }
+      .status-value.faults {
+        color: #dc3545;
+      }
+
+      .error-banner {
+        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+        border: none;
+        border-left: 5px solid #dc3545;
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 20px;
+        display: none;
+        box-shadow: 0 4px 15px rgba(220, 53, 69, 0.2);
+      }
+
+      .error-banner.show {
+        display: block;
+      }
+
+      .error-title {
+        font-weight: bold;
+        color: #721c24;
+        margin-bottom: 5px;
+        font-size: 1.1em;
+      }
+
+      .error-message {
+        color: #721c24;
+        font-size: 0.9em;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+        gap: 24px;
+        margin-bottom: 24px;
+      }
+
+      .card {
+        background: rgba(255, 255, 255, 0.97);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+
+      .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 15px 50px rgba(0, 0, 0, 0.2);
+      }
+
+      .card-title {
+        font-size: 1.2em;
+        font-weight: 600;
+        color: #667eea;
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #e8ecff;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        justify-content: space-between;
+      }
+
+      .card-title::before {
+        content: "";
+        width: 4px;
+        height: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 2px;
+      }
+
+      .chart-container {
+        position: relative;
+        height: 320px;
+      }
+
+      .fault-list {
+        max-height: 320px;
+        overflow-y: auto;
+        padding-right: 8px;
+      }
+
+      .fault-list::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .fault-list::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+      }
+
+      .fault-list::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 3px;
+      }
+
+      .fault-item {
+        padding: 14px 16px;
+        margin-bottom: 10px;
+        border-radius: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: transform 0.2s ease;
+      }
+
+      .fault-item:hover {
+        transform: translateX(4px);
+      }
+
+      .fault-warning {
+        background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%);
+        border-left: 4px solid #ffc107;
+      }
+
+      .fault-error {
+        background: linear-gradient(135deg, #ffeaea 0%, #f8d7da 100%);
+        border-left: 4px solid #dc3545;
+      }
+
+      .fault-ok {
+        background: linear-gradient(135deg, #e8f5e9 0%, #d4edda 100%);
+        border-left: 4px solid #28a745;
+      }
+
+      .panel-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+        gap: 12px;
+        max-height: 320px;
+        overflow-y: auto;
+        padding-right: 8px;
+      }
+
+      .panel-cell {
+        padding: 14px 10px;
+        border-radius: 10px;
+        text-align: center;
+        font-size: 0.85em;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .panel-cell:hover {
+        transform: scale(1.08);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+      }
+
+      .panel-cell.selected {
+        box-shadow: 0 0 0 3px #667eea;
+        transform: scale(1.05);
+      }
+
+      .panel-ok {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+      }
+
+      .panel-warning {
+        background: linear-gradient(135deg, #ffc107 0%, #ffca2c 100%);
+        color: #333;
+      }
+
+      .panel-fault {
+        background: linear-gradient(135deg, #dc3545 0%, #e4606d 100%);
+        color: white;
+      }
+
+      .panel-offline {
+        background: linear-gradient(135deg, #6c757d 0%, #868e96 100%);
+        color: white;
+      }
+
+      .controls {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        cursor: pointer;
+        font-size: 0.95em;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+      }
+
+      .btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+      }
+
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .btn-secondary {
+        background: linear-gradient(135deg, #6c757d 0%, #868e96 100%);
+        box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+      }
+
+      .btn-secondary:hover:not(:disabled) {
+        box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
+      }
+
+      .btn-small {
+        padding: 8px 16px;
+        font-size: 0.85em;
+      }
+
+      select, input {
+        padding: 12px 16px;
+        border: 2px solid #e8ecff;
+        border-radius: 10px;
+        font-size: 0.95em;
+        background: white;
+        cursor: pointer;
+        transition: border-color 0.3s ease;
+      }
+
+      select:hover, input:hover {
+        border-color: #667eea;
+      }
+
+      select:focus, input:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      }
+
+      input {
+        cursor: text;
+      }
+
+      .loading {
+        text-align: center;
+        padding: 40px 20px;
+        color: #666;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: #999;
+      }
+
+      .empty-state-icon {
+        font-size: 3em;
+        margin-bottom: 10px;
+        opacity: 0.7;
+      }
+
+      .string-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 16px;
+      }
+
+      .string-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+        transition: all 0.3s ease;
+      }
+
+      .string-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+      }
+
+      .string-card h4 {
+        margin-bottom: 8px;
+        font-size: 0.85em;
+        opacity: 0.9;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+
+      .string-card .value {
+        font-size: 1.6em;
+        font-weight: bold;
+      }
+
+      .last-update {
+        font-size: 0.8em;
+        color: #888;
+        text-align: right;
+        margin-top: 12px;
+      }
+
+      .connection-status {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 8px;
+        box-shadow: 0 0 8px currentColor;
+      }
+
+      .connection-status.connected {
+        background: #28a745;
+        color: #28a745;
+      }
+
+      .connection-status.disconnected {
+        background: #dc3545;
+        color: #dc3545;
+      }
+
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(5px);
+      }
+
+      .modal.show {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .modal-content {
+        background: white;
+        padding: 32px;
+        border-radius: 16px;
+        max-width: 900px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 2px solid #e8ecff;
+      }
+
+      .modal-title {
+        font-size: 1.5em;
+        color: #667eea;
+        font-weight: 600;
+      }
+
+      .close-btn {
+        background: none;
+        border: none;
+        font-size: 2em;
+        color: #999;
+        cursor: pointer;
+        line-height: 1;
+        padding: 0;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+      }
+
+      .close-btn:hover {
+        background: #f5f5f5;
+        color: #333;
+      }
+
+      .panel-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+
+      .detail-item {
+        background: linear-gradient(135deg, #f8f9ff 0%, #e8ecff 100%);
+        padding: 16px;
+        border-radius: 12px;
+        border-left: 4px solid #667eea;
+      }
+
+      .detail-label {
+        font-size: 0.75em;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 4px;
+      }
+
+      .detail-value {
+        font-size: 1.4em;
+        font-weight: 600;
+        color: #333;
+      }
+
+      .filter-controls {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      .updating {
+        animation: pulse 1s infinite;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(102, 126, 234, 0.2);
+        border-radius: 50%;
+        border-top-color: #667eea;
+        animation: spin 1s ease-in-out infinite;
+      }
+
+      .spinner-light {
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-top-color: white;
+      }
+
+      /* Responsive adjustments */
+      @media (max-width: 768px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+
+        h1 {
+          font-size: 1.4em;
+        }
+
+        .status-bar {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .modal-content {
+          width: 95%;
+          padding: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="error-banner" id="errorBanner">
+        <div class="error-title">⚠️ Connection Error</div>
+        <div class="error-message" id="errorMessage"></div>
+      </div>
+
+      <header>
+        <h1>
+          <span class="connection-status" id="connectionStatus"></span>
+          ☀️ Solar Panel Telemetry Dashboard
+        </h1>
+        <div class="status-bar">
+          <div class="status-item">
+            <div class="status-label">Total Power</div>
+            <div class="status-value power" id="totalPower">
+              <span class="spinner"></span>
+            </div>
+          </div>
+          <div class="status-item">
+            <div class="status-label">Active Panels</div>
+            <div class="status-value panels" id="activePanels">
+              <span class="spinner"></span>
+            </div>
+          </div>
+          <div class="status-item">
+            <div class="status-label">Avg Irradiance</div>
+            <div class="status-value irradiance" id="avgIrradiance">
+              <span class="spinner"></span>
+            </div>
+          </div>
+          <div class="status-item">
+            <div class="status-label">Active Faults</div>
+            <div class="status-value faults" id="faultCount">
+              <span class="spinner"></span>
+            </div>
+          </div>
+        </div>
+        <div class="last-update">
+          Last updated: <span id="lastUpdate">Never</span>
+        </div>
+      </header>
+
+      <div class="controls">
+        <button class="btn" onclick="refreshData()" id="refreshBtn">
+          🔄 Refresh Now
+        </button>
+        <button class="btn btn-secondary" onclick="toggleAutoRefresh()">
+          <span id="autoRefreshBtn">⏸️ Pause Auto-Refresh</span>
+        </button>
+        <select id="timeRange" onchange="updateTimeRange()">
+          <option value="-5m">Last 5 minutes</option>
+          <option value="-15m">Last 15 minutes</option>
+          <option value="-1h" selected>Last 1 hour</option>
+          <option value="-6h">Last 6 hours</option>
+          <option value="-24h">Last 24 hours</option>
+        </select>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <div class="card-title">System Power Output</div>
+          <div class="chart-container">
+            <canvas id="powerChart"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Irradiance & Temperature</div>
+          <div class="chart-container">
+            <canvas id="envChart"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Active Faults & Warnings</div>
+          <div id="faultList" class="fault-list">
+            <div class="loading">
+              <span class="spinner"></span>
+              <p style="margin-top: 12px">Loading faults...</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span>Panel Status Overview</span>
+            <div class="filter-controls">
+              <input
+                type="text"
+                id="panelFilter"
+                placeholder="Filter panels..."
+                style="padding: 8px 12px; font-size: 0.85em; width: 150px;"
+                oninput="filterPanels()"
+              />
+              <button class="btn btn-secondary btn-small" onclick="clearPanelFilter()">
+                Clear
+              </button>
+            </div>
+          </div>
+          <div id="panelGrid" class="panel-grid">
+            <div class="loading">
+              <span class="spinner"></span>
+              <p style="margin-top: 12px">Loading panels...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">String Performance</div>
+        <div id="stringStats" class="string-stats">
+          <div class="loading">
+            <span class="spinner"></span>
+            <p style="margin-top: 12px">Loading string data...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel Detail Modal -->
+    <div id="panelModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title" id="modalTitle">Panel Details</h2>
+          <button class="close-btn" onclick="closePanelModal()">&times;</button>
+        </div>
+        
+        <div class="panel-details" id="panelDetailsGrid">
+          <!-- Details will be populated here -->
+        </div>
+
+        <div class="card-title" style="margin-bottom: 16px;">Historical Trends</div>
+        <div class="chart-container" style="height: 400px;">
+          <canvas id="panelHistoryChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Configuration
+      const API_BASE_URL = "http://localhost:8080/api";
+      let autoRefresh = true;
+      let refreshInterval;
+      let timeRange = "-1h";
+      let isRefreshing = false;
+      let connectionState = {
+        current: false,
+        aggregate: false,
+        faults: false,
+        strings: false,
+      };
+
+      // Store all panels data for filtering
+      let allPanelsData = [];
+      let currentFilter = "";
+      let selectedPanelId = null;
+
+      // Store last successful data for each endpoint
+      let lastKnownPanelData = [];
+      let lastKnownChartData = null;
+      let lastKnownFaultData = [];
+      let lastKnownStringData = {};
+
+      // Charts
+      let powerChart, envChart, panelHistoryChart;
+
+      // Initialize dashboard
+      document.addEventListener("DOMContentLoaded", function () {
+        console.log("🚀 Dashboard initializing...");
+        initCharts();
+        initPanelHistoryChart();
+        refreshData();
+        startAutoRefresh();
+      });
+
+      function initCharts() {
+        // Common chart defaults
+        Chart.defaults.font.family =
+          "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+        Chart.defaults.color = "#666";
+
+        const powerCtx = document.getElementById("powerChart").getContext("2d");
+
+        // Create gradient for power chart
+        const powerGradient = powerCtx.createLinearGradient(0, 0, 0, 320);
+        powerGradient.addColorStop(0, "rgba(102, 126, 234, 0.4)");
+        powerGradient.addColorStop(1, "rgba(102, 126, 234, 0.02)");
+
+        powerChart = new Chart(powerCtx, {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "Total Power (W)",
+                data: [],
+                borderColor: "#667eea",
+                backgroundColor: powerGradient,
+                borderWidth: 3,
+                tension: 0.4,
+                fill: true,
+                pointRadius: 0,
+                pointHoverRadius: 6,
+                pointHoverBackgroundColor: "#667eea",
+                pointHoverBorderColor: "#fff",
+                pointHoverBorderWidth: 2,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
+            plugins: {
+              legend: {
+                display: true,
+                position: "top",
+                align: "end",
+                labels: {
+                  usePointStyle: true,
+                  pointStyle: "circle",
+                  padding: 20,
+                  font: { size: 12, weight: "500" },
+                },
+              },
+              tooltip: {
+                backgroundColor: "rgba(255, 255, 255, 0.95)",
+                titleColor: "#333",
+                bodyColor: "#666",
+                borderColor: "#e0e0e0",
+                borderWidth: 1,
+                padding: 12,
+                cornerRadius: 8,
+                displayColors: true,
+                callbacks: {
+                  label: function (context) {
+                    return ` ${
+                      context.dataset.label
+                    }: ${context.parsed.y.toLocaleString()} W`;
+                  },
+                },
+              },
+            },
+            scales: {
+              x: {
+                grid: {
+                  display: false,
+                },
+                ticks: {
+                  maxTicksLimit: 8,
+                  maxRotation: 0,
+                  font: { size: 11 },
+                },
+              },
+              y: {
+                beginAtZero: true,
+                grid: {
+                  color: "rgba(0, 0, 0, 0.06)",
+                  drawBorder: false,
+                },
+                ticks: {
+                  padding: 10,
+                  font: { size: 11 },
+                  callback: function (value) {
+                    return value.toLocaleString() + " W";
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        const envCtx = document.getElementById("envChart").getContext("2d");
+
+        // Create gradients for env chart
+        const irrGradient = envCtx.createLinearGradient(0, 0, 0, 320);
+        irrGradient.addColorStop(0, "rgba(255, 193, 7, 0.3)");
+        irrGradient.addColorStop(1, "rgba(255, 193, 7, 0.02)");
+
+        envChart = new Chart(envCtx, {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "Irradiance (W/m²)",
+                data: [],
+                borderColor: "#ff9f43",
+                backgroundColor: irrGradient,
+                borderWidth: 2.5,
+                yAxisID: "y",
+                tension: 0.4,
+                fill: true,
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                pointHoverBackgroundColor: "#ff9f43",
+                pointHoverBorderColor: "#fff",
+                pointHoverBorderWidth: 2,
+              },
+              {
+                label: "Ambient Temp (°C)",
+                data: [],
+                borderColor: "#28a745",
+                backgroundColor: "transparent",
+                borderWidth: 2.5,
+                yAxisID: "y1",
+                tension: 0.4,
+                fill: false,
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                pointHoverBackgroundColor: "#28a745",
+                pointHoverBorderColor: "#fff",
+                pointHoverBorderWidth: 2,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
+            plugins: {
+              legend: {
+                display: true,
+                position: "top",
+                align: "end",
+                labels: {
+                  usePointStyle: true,
+                  pointStyle: "circle",
+                  padding: 20,
+                  font: { size: 12, weight: "500" },
+                },
+              },
+              tooltip: {
+                backgroundColor: "rgba(255, 255, 255, 0.95)",
+                titleColor: "#333",
+                bodyColor: "#666",
+                borderColor: "#e0e0e0",
+                borderWidth: 1,
+                padding: 12,
+                cornerRadius: 8,
+                displayColors: true,
+                callbacks: {
+                  label: function (context) {
+                    const unit = context.datasetIndex === 0 ? " W/m²" : " °C";
+                    return ` ${
+                      context.dataset.label
+                    }: ${context.parsed.y.toFixed(1)}${unit}`;
+                  },
+                },
+              },
+            },
+            scales: {
+              x: {
+                grid: {
+                  display: false,
+                },
+                ticks: {
+                  maxTicksLimit: 8,
+                  maxRotation: 0,
+                  font: { size: 11 },
+                },
+              },
+              y: {
+                type: "linear",
+                display: true,
+                position: "left",
+                title: {
+                  display: true,
+                  text: "Irradiance (W/m²)",
+                  color: "#ff9f43",
+                  font: { size: 11, weight: "500" },
+                },
+                grid: {
+                  color: "rgba(0, 0, 0, 0.06)",
+                  drawBorder: false,
+                },
+                ticks: {
+                  padding: 8,
+                  font: { size: 11 },
+                  color: "#ff9f43",
+                },
+              },
+              y1: {
+                type: "linear",
+                display: true,
+                position: "right",
+                title: {
+                  display: true,
+                  text: "Temperature (°C)",
+                  color: "#28a745",
+                  font: { size: 11, weight: "500" },
+                },
+                grid: {
+                  drawOnChartArea: false,
+                },
+                ticks: {
+                  padding: 8,
+                  font: { size: 11 },
+                  color: "#28a745",
+                },
+              },
+            },
+          },
+        });
+      }
+
+      function initPanelHistoryChart() {
+        const ctx = document.getElementById("panelHistoryChart").getContext("2d");
+        
+        panelHistoryChart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "Power (W)",
+                data: [],
+                borderColor: "#667eea",
+                backgroundColor: "rgba(102, 126, 234, 0.1)",
+                borderWidth: 2,
+                yAxisID: "y",
+                tension: 0.4,
+              },
+              {
+                label: "Voltage (V)",
+                data: [],
+                borderColor: "#28a745",
+                backgroundColor: "transparent",
+                borderWidth: 2,
+                yAxisID: "y1",
+                tension: 0.4,
+              },
+              {
+                label: "Current (A)",
+                data: [],
+                borderColor: "#ffc107",
+                backgroundColor: "transparent",
+                borderWidth: 2,
+                yAxisID: "y2",
+                tension: 0.4,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
+            plugins: {
+              legend: {
+                display: true,
+                position: "top",
+              },
+              tooltip: {
+                backgroundColor: "rgba(255, 255, 255, 0.95)",
+                titleColor: "#333",
+                bodyColor: "#666",
+                borderColor: "#e0e0e0",
+                borderWidth: 1,
+              },
+            },
+            scales: {
+              x: {
+                grid: { display: false },
+                ticks: { maxTicksLimit: 10 },
+              },
+              y: {
+                type: "linear",
+                display: true,
+                position: "left",
+                title: { display: true, text: "Power (W)", color: "#667eea" },
+                ticks: { color: "#667eea" },
+              },
+              y1: {
+                type: "linear",
+                display: true,
+                position: "right",
+                title: { display: true, text: "Voltage (V)", color: "#28a745" },
+                ticks: { color: "#28a745" },
+                grid: { drawOnChartArea: false },
+              },
+              y2: {
+                type: "linear",
+                display: false,
+                position: "right",
+              },
+            },
+          },
+        });
+      }
+
+      async function refreshData() {
+        if (isRefreshing) return;
+
+        isRefreshing = true;
+        const refreshBtn = document.getElementById("refreshBtn");
+        refreshBtn.disabled = true;
+        refreshBtn.innerHTML =
+          '<span class="spinner spinner-light"></span> Refreshing...';
+
+        try {
+          await Promise.allSettled([
+            fetchCurrentData(),
+            fetchAggregateData(),
+            fetchFaults(),
+            fetchStringData(),
+          ]);
+
+          document.getElementById("lastUpdate").textContent =
+            new Date().toLocaleTimeString();
+          document.getElementById("lastUpdate").style.color = "#888";
+          updateConnectionStatus();
+          
+          // Only hide error if all connections are successful
+          const allConnected = Object.values(connectionState).every((v) => v);
+          if (allConnected) {
+            hideError();
+          }
+        } catch (error) {
+          console.error("Error refreshing data:", error);
+          showError("Failed to refresh dashboard data: " + error.message);
+        } finally {
+          isRefreshing = false;
+          refreshBtn.disabled = false;
+          refreshBtn.textContent = "🔄 Refresh Now";
+        }
+      }
+
+      async function fetchCurrentData() {
+        try {
+          const response = await fetch(`${API_BASE_URL}/current`, {
+            timeout: 5000,
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+
+          const result = await response.json();
+          connectionState.current = true;
+
+          const panels = (result.data && Array.isArray(result.data)) ? result.data : [];
+
+          lastKnownPanelData = panels;
+          allPanelsData = panels;
+
+          // Update the panel grid
+          filterPanels();
+
+          // Update header stats
+          const totalPower = allPanelsData.reduce(
+            (sum, p) => sum + (p.power_w || 0),
+            0
+          );
+
+          const avgIrr =
+            allPanelsData.length > 0
+              ? allPanelsData.reduce((sum, p) => sum + (p.irradiance_wm2 || 0), 0) /
+                allPanelsData.length
+              : 0;
+
+          updateHeaderStats(allPanelsData, totalPower, avgIrr);
+          
+        } catch (error) {
+          console.error("[fetchCurrentData] Error:", error);
+          connectionState.current = false;
+          showError(
+            "Cannot connect to API server. Make sure influx_api.py is running on port 8080."
+          );
+          
+          // Use last known data if available
+          if (lastKnownPanelData.length > 0) {
+            allPanelsData = lastKnownPanelData;
+            filterPanels();
+            const totalPower = allPanelsData.reduce((sum, p) => sum + (p.power_w || 0), 0);
+            const avgIrr = allPanelsData.reduce((sum, p) => sum + (p.irradiance_wm2 || 0), 0) / allPanelsData.length;
+            updateHeaderStats(allPanelsData, totalPower, avgIrr);
+          } else {
+            // Only show empty if we never had data
+            allPanelsData = [];
+            showEmptyPanelGrid();
+            updateHeaderStats([], 0);
+          }
+        }
+      }
+
+      function updateHeaderStats(panels, totalPower, avgIrr) {
+        const activePanels = panels.length;
+        
+        document.getElementById("totalPower").textContent =
+          (totalPower / 1000).toFixed(2) + " kW";
+        document.getElementById("activePanels").textContent = `${activePanels}`;
+        document.getElementById("avgIrradiance").textContent =
+          (isNaN(avgIrr) ? 0 : avgIrr).toFixed(1) + " W/m²";
+      }
+
+      function filterPanels() {
+        const filterInput = document.getElementById("panelFilter");
+        currentFilter = filterInput.value.toLowerCase().trim();
+        
+        let filteredPanels = allPanelsData;
+        
+        if (currentFilter) {
+          filteredPanels = allPanelsData.filter(panel => 
+            (panel.panel_id || "").toLowerCase().includes(currentFilter) ||
+            (panel.string_id || "").toLowerCase().includes(currentFilter)
+          );
+        }
+        
+        updatePanelGrid(filteredPanels);
+      }
+
+      function clearPanelFilter() {
+        document.getElementById("panelFilter").value = "";
+        currentFilter = "";
+        filterPanels();
+      }
+
+      async function fetchAggregateData() {
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/aggregate?start=${timeRange}`
+          );
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const result = await response.json();
+          connectionState.aggregate = true;
+
+          if (
+            result.timeseries &&
+            Array.isArray(result.timeseries) &&
+            result.timeseries.length > 0
+          ) {
+            lastKnownChartData = result.timeseries;
+            updateCharts(result.timeseries);
+          }
+        } catch (error) {
+          console.error("[fetchAggregateData] Error:", error);
+          connectionState.aggregate = false;
+          
+          // Use last known chart data if available
+          if (lastKnownChartData && lastKnownChartData.length > 0) {
+            updateCharts(lastKnownChartData);
+          }
+        }
+      }
+
+      async function fetchFaults() {
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/faults?start=${timeRange}`
+          );
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const result = await response.json();
+          connectionState.faults = true;
+
+          const count = result.count || 0;
+          document.getElementById("faultCount").textContent = count;
+          lastKnownFaultData = result.faults || [];
+          updateFaultList(result.faults || []);
+        } catch (error) {
+          console.error("[fetchFaults] Error:", error);
+          connectionState.faults = false;
+          
+          // Use last known fault data
+          if (lastKnownFaultData.length > 0) {
+            document.getElementById("faultCount").textContent = lastKnownFaultData.length;
+            updateFaultList(lastKnownFaultData);
+          } else {
+            document.getElementById("faultCount").textContent = "--";
+            showEmptyFaults();
+          }
+        }
+      }
+
+      async function fetchStringData() {
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/strings?start=${timeRange}`
+          );
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const result = await response.json();
+          connectionState.strings = true;
+
+          if (result.strings && Object.keys(result.strings).length > 0) {
+            lastKnownStringData = result.strings;
+            updateStringStats(result.strings);
+          }
+        } catch (error) {
+          console.error("[fetchStringData] Error:", error);
+          connectionState.strings = false;
+          
+          // Use last known string data
+          if (lastKnownStringData && Object.keys(lastKnownStringData).length > 0) {
+            updateStringStats(lastKnownStringData);
+          } else {
+            showEmptyStrings();
+          }
+        }
+      }
+
+      function updatePanelGrid(panels) {
+        const grid = document.getElementById("panelGrid");
+        grid.innerHTML = "";
+
+        if (!panels || panels.length === 0) {
+          if (currentFilter) {
+            grid.innerHTML = `
+              <div class="empty-state">
+                <div class="empty-state-icon">🔍</div>
+                <div>No panels match filter "${currentFilter}"</div>
+              </div>
+            `;
+          } else {
+            showEmptyPanelGrid();
+          }
+          return;
+        }
+
+        // Sort panels by ID
+        panels.sort((a, b) =>
+          (a.panel_id || "").localeCompare(b.panel_id || "")
+        );
+
+        panels.forEach((panel) => {
+          const cell = document.createElement("div");
+          cell.className = "panel-cell ";
+
+          const status = panel.status || "UNKNOWN";
+          if (status === "OK") cell.className += "panel-ok";
+          else if (status === "WARNING") cell.className += "panel-warning";
+          else if (status === "FAULT") cell.className += "panel-fault";
+          else cell.className += "panel-offline";
+
+          if (selectedPanelId === panel.panel_id) {
+            cell.classList.add("selected");
+          }
+
+          const power = panel.power_w || 0;
+          cell.innerHTML = `
+            <div style="font-weight: 600; margin-bottom: 4px;">${
+              panel.panel_id || "Unknown"
+            }</div>
+            <div style="font-size: 0.9em; opacity: 0.9;">${power.toFixed(
+              0
+            )}W</div>
+          `;
+
+          cell.title = `Click to view ${panel.panel_id} trends`;
+          cell.onclick = () => openPanelModal(panel);
+          grid.appendChild(cell);
+        });
+      }
+
+      function showEmptyPanelGrid() {
+        const grid = document.getElementById("panelGrid");
+        grid.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">🔌</div>
+            <div>No panel data available</div>
+          </div>
+        `;
+      }
+
+      async function openPanelModal(panel) {
+        selectedPanelId = panel.panel_id;
+        
+        // Update modal title
+        document.getElementById("modalTitle").textContent = `Panel ${panel.panel_id}`;
+        
+        // Update panel details
+        const detailsGrid = document.getElementById("panelDetailsGrid");
+        detailsGrid.innerHTML = `
+          <div class="detail-item">
+            <div class="detail-label">Status</div>
+            <div class="detail-value">${panel.status || "UNKNOWN"}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">String</div>
+            <div class="detail-value">${panel.string_id || "Unknown"}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Power</div>
+            <div class="detail-value">${(panel.power_w || 0).toFixed(1)} W</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Voltage</div>
+            <div class="detail-value">${(panel.voltage_v || 0).toFixed(1)} V</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Current</div>
+            <div class="detail-value">${(panel.current_a || 0).toFixed(2)} A</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Irradiance</div>
+            <div class="detail-value">${(panel.irradiance_wm2 || 0).toFixed(1)} W/m²</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Cell Temp</div>
+            <div class="detail-value">${(panel.cell_temp_c || 0).toFixed(1)} °C</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Fault</div>
+            <div class="detail-value">${panel.fault || "NONE"}</div>
+          </div>
+        `;
+        
+        // Show modal
+        document.getElementById("panelModal").classList.add("show");
+        
+        // Fetch and display historical data
+        await fetchPanelHistory(panel.panel_id);
+        
+        // Re-render the grid to show selected state
+        filterPanels();
+      }
+
+      function closePanelModal() {
+        document.getElementById("panelModal").classList.remove("show");
+        selectedPanelId = null;
+        filterPanels(); // Re-render to remove selected state
+      }
+
+      async function fetchPanelHistory(panelId) {
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/panel/${panelId}?start=${timeRange}`
+          );
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const result = await response.json();
+          
+          if (result.data && result.data.length > 0) {
+            updatePanelHistoryChart(result.data);
+          } else {
+            // Show empty chart
+            panelHistoryChart.data.labels = ["No data"];
+            panelHistoryChart.data.datasets[0].data = [0];
+            panelHistoryChart.data.datasets[1].data = [0];
+            panelHistoryChart.data.datasets[2].data = [0];
+            panelHistoryChart.update("none");
+          }
+        } catch (error) {
+          console.error("[fetchPanelHistory] Error:", error);
+          panelHistoryChart.data.labels = ["Error loading data"];
+          panelHistoryChart.data.datasets[0].data = [0];
+          panelHistoryChart.data.datasets[1].data = [0];
+          panelHistoryChart.data.datasets[2].data = [0];
+          panelHistoryChart.update("none");
+        }
+      }
+
+      function updatePanelHistoryChart(data) {
+        const labels = data.map((d) => {
+          const date = new Date(d.timestamp);
+          return date.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+        });
+
+        const power = data.map((d) => d.power_w || 0);
+        const voltage = data.map((d) => d.voltage_v || 0);
+        const current = data.map((d) => d.current_a || 0);
+
+        panelHistoryChart.data.labels = labels;
+        panelHistoryChart.data.datasets[0].data = power;
+        panelHistoryChart.data.datasets[1].data = voltage;
+        panelHistoryChart.data.datasets[2].data = current;
+        panelHistoryChart.update("none");
+      }
+
+      function updateCharts(timeseries) {
+        if (!timeseries || timeseries.length === 0) {
+          powerChart.data.labels = ["No data"];
+          powerChart.data.datasets[0].data = [0];
+          powerChart.update("none");
+
+          envChart.data.labels = ["No data"];
+          envChart.data.datasets[0].data = [0];
+          envChart.data.datasets[1].data = [0];
+          envChart.update("none");
+          return;
+        }
+
+        // Format time labels based on time range
+        const labels = timeseries.map((d) => {
+          const date = new Date(d.timestamp);
+          return date.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+        });
+
+        const power = timeseries.map((d) => d.avg_power_w || 0);
+        const irradiance = timeseries.map((d) => d.avg_irradiance_wm2 || 0);
+        const temp = timeseries.map((d) => d.avg_ambient_temp_c || 0);
+
+        powerChart.data.labels = labels;
+        powerChart.data.datasets[0].data = power;
+        powerChart.update("none");
+
+        envChart.data.labels = labels;
+        envChart.data.datasets[0].data = irradiance;
+        envChart.data.datasets[1].data = temp;
+        envChart.update("none");
+      }
+
+      function updateFaultList(faults) {
+        const list = document.getElementById("faultList");
+
+        if (!faults || faults.length === 0) {
+          list.innerHTML =
+            '<div class="fault-item fault-ok"><span>✅</span><span style="margin-left: 12px;">No active faults or warnings</span></div>';
+          return;
+        }
+
+        list.innerHTML = "";
+
+        // Limit to most recent 50 faults for performance
+        const displayFaults = faults.slice(0, 50);
+
+        displayFaults.forEach((fault) => {
+          const item = document.createElement("div");
+          const isWarning = fault.status === "WARNING";
+          item.className =
+            "fault-item " + (isWarning ? "fault-warning" : "fault-error");
+
+          const icon = isWarning ? "⚠️" : "🔴";
+
+          item.innerHTML = `
+            <div>
+              <strong>${icon} ${fault.panel_id || "Unknown"}</strong>
+              <span style="color: #888; font-size: 0.85em;"> (${
+                fault.string_id || "Unknown"
+              })</span><br>
+              <small style="color: #666;">${
+                fault.fault || "Unknown fault"
+              }</small>
+            </div>
+            <div style="text-align: right;">
+              <span style="font-weight: 600; font-size: 0.85em; padding: 4px 8px; border-radius: 4px; background: ${
+                isWarning ? "rgba(255,193,7,0.3)" : "rgba(220,53,69,0.2)"
+              };">${fault.status || "UNKNOWN"}</span><br>
+              <small style="color: #888; margin-top: 4px; display: block;">${new Date(
+                fault.timestamp
+              ).toLocaleTimeString()}</small>
+            </div>
+          `;
+          list.appendChild(item);
+        });
+
+        // Show count if truncated
+        if (faults.length > 50) {
+          const moreItem = document.createElement("div");
+          moreItem.className = "fault-item";
+          moreItem.style.cssText =
+            "justify-content: center; color: #888; font-size: 0.9em;";
+          moreItem.textContent = `... and ${faults.length - 50} more faults`;
+          list.appendChild(moreItem);
+        }
+      }
+
+      function showEmptyFaults() {
+        document.getElementById("faultList").innerHTML =
+          '<div class="loading"><span class="spinner"></span><p style="margin-top: 12px;">Unable to load fault data</p></div>';
+      }
+
+      function updateStringStats(strings) {
+        const container = document.getElementById("stringStats");
+        container.innerHTML = "";
+
+        if (!strings || Object.keys(strings).length === 0) {
+          showEmptyStrings();
+          return;
+        }
+
+        Object.keys(strings)
+          .sort()
+          .forEach((stringId) => {
+            const data = strings[stringId];
+            let latestPower = 0;
+
+            if (data && data.length > 0) {
+              for (let i = data.length - 1; i >= 0; i--) {
+                if (
+                  data[i].total_power_w !== undefined &&
+                  data[i].total_power_w !== null
+                ) {
+                  latestPower = data[i].total_power_w;
+                  break;
+                }
+              }
+            }
+
+            const card = document.createElement("div");
+            card.className = "string-card";
+            card.innerHTML = `
+              <h4>${stringId}</h4>
+              <div class="value">${(latestPower / 1000).toFixed(2)} kW</div>
+            `;
+            container.appendChild(card);
+          });
+      }
+
+      function showEmptyStrings() {
+        document.getElementById("stringStats").innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">🔗</div>
+            <div>No string data available</div>
+          </div>
+        `;
+      }
+
+      function updateConnectionStatus() {
+        const status = document.getElementById("connectionStatus");
+        const isConnected = Object.values(connectionState).some((v) => v);
+
+        status.className =
+          "connection-status " + (isConnected ? "connected" : "disconnected");
+      }
+
+      function showError(message) {
+        const banner = document.getElementById("errorBanner");
+        const errorMsg = document.getElementById("errorMessage");
+        errorMsg.textContent = message;
+        banner.classList.add("show");
+      }
+
+      function hideError() {
+        document.getElementById("errorBanner").classList.remove("show");
+      }
+
+      function startAutoRefresh() {
+        if (refreshInterval) clearInterval(refreshInterval);
+        refreshInterval = setInterval(() => {
+          if (autoRefresh && !isRefreshing) refreshData();
+        }, 5000);
+      }
+
+      function toggleAutoRefresh() {
+        autoRefresh = !autoRefresh;
+        const btn = document.getElementById("autoRefreshBtn");
+        btn.textContent = autoRefresh
+          ? "⏸️ Pause Auto-Refresh"
+          : "▶️ Resume Auto-Refresh";
+      }
+
+      function updateTimeRange() {
+        const selectElement = document.getElementById("timeRange");
+        if (!selectElement) {
+          console.error("Time range select element not found");
+          return;
+        }
+        
+        timeRange = selectElement.value;
+        console.log("Time range changed to:", timeRange);
+        
+        // Clear last known chart/fault/string data when time range changes
+        // This forces fresh data fetch for the new time range
+        lastKnownChartData = null;
+        lastKnownFaultData = [];
+        lastKnownStringData = {};
+        
+        // Refresh all data with new time range
+        refreshData();
+      }
+
+      // Close modal when clicking outside
+      window.onclick = function(event) {
+        const modal = document.getElementById("panelModal");
+        if (event.target === modal) {
+          closePanelModal();
+        }
+      }
+    </script>
+  </body>
+</html>
