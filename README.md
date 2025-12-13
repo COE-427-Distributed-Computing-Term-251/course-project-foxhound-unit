@@ -55,6 +55,33 @@ conda activate foxhound
 pip install -r requirements.txt
 ```
 
+## Phase Two — Running Backend & Frontend
+
+### Backend (InfluxDB API)
+
+To run the backend API in Phase Two, navigate to the `web` directory and start the InfluxDB API service:
+
+If you are on any system (Windows / macOS / Linux):
+```bash
+cd web
+python influx_api.py
+```
+
+If you are on Windows:
+```bash
+cd web
+py .\influx_api.py
+```
+
+### Frontend (Dashboard)
+
+To run the frontend dashboard, navigate to the web directory and open the dashboard file:
+
+```bash
+cd web
+start dashboard.html
+```
+
 ## Usage (examples)
 
 Note: Run any script with `--help` to confirm flags.
